@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#05070b">
+<title>Haisham Life Graph</title>
+<style>
+:root{--bg:#05070b;--panel:#0b1017;--panel2:#101720;--text:#eef2f7;--muted:#707b8a;--line:#36404e;--bright:#aeb8c6}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif}
+body:before{content:"";position:fixed;inset:0;background:radial-gradient(circle at 50% 48%,rgba(255,255,255,.06),transparent 28%),linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:auto,32px 32px,32px 32px;pointer-events:none}
+header{position:fixed;z-index:20;top:max(14px,env(safe-area-inset-top));left:17px;right:17px;display:flex;align-items:center;justify-content:space-between}
+.brand{font-size:10px;letter-spacing:.2em;font-weight:800;color:#929baa}.tools{display:flex;gap:7px}
+button{font:inherit;color:inherit}.tool{width:36px;height:36px;border:1px solid #252e3a;background:rgba(9,13,19,.9);border-radius:11px}
+#viewport{position:absolute;inset:0;overflow:hidden;touch-action:none}
+#world{position:absolute;left:0;top:0;width:100%;height:100%;transform-origin:0 0}
+#edges{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.edge{stroke:var(--line);stroke-width:1.15;opacity:.72}.edge.active{stroke:#aeb8c6;stroke-width:1.6;opacity:1;filter:drop-shadow(0 0 5px rgba(255,255,255,.2))}
+.node{position:absolute;transform:translate(-50%,-50%);width:88px;height:88px;border-radius:50%;border:1.2px solid #3a4553;background:#0b1017;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 10px 30px rgba(0,0,0,.25);user-select:none;transition:.28s cubic-bezier(.2,.8,.2,1)}
+.node .ico{font-size:19px}.node .name{margin-top:7px;font-size:9px;letter-spacing:.13em;font-weight:800;text-align:center}.node .kind{display:none}
+.node.focus{width:118px;height:118px;border:1.6px solid #aeb8c6;background:#101720;box-shadow:0 0 0 10px rgba(174,184,198,.06),0 0 44px rgba(255,255,255,.08)}
+.node.focus .ico{font-size:25px}.node.focus .name{font-size:12px}.node.related{border-color:#566171}
+.node.dim{opacity:.28}
+#crumbs{position:fixed;z-index:15;top:64px;left:18px;right:18px;display:flex;gap:6px;overflow:auto;scrollbar-width:none}
+.crumb{white-space:nowrap;border:1px solid #242d38;border-radius:999px;padding:7px 9px;background:rgba(8,12,18,.86);font-size:8px;letter-spacing:.08em;color:#8892a0}
+.crumb:last-child{color:#eef2f7;border-color:#46515f}
+#panel{position:fixed;z-index:30;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));border:1px solid #2b3542;border-radius:18px;background:rgba(9,13,19,.97);backdrop-filter:blur(18px);box-shadow:0 18px 60px #000;padding:16px;transform:translateY(130%);transition:.3s ease}
+#panel.show{transform:translateY(0)}.phead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.ptitle{font-size:16px;font-weight:800}.ptype{font-size:8px;color:#75808f;letter-spacing:.13em;margin-top:5px}.pdesc{font-size:11px;line-height:1.5;color:#9aa4b2;margin:12px 0}
+.actions{display:flex;gap:8px}.action{flex:1;border:1px solid #35404d;border-radius:11px;background:#121923;padding:11px;font-size:9px;font-weight:800;letter-spacing:.07em}.close{border:0;background:none;color:#7f8997;font-size:20px}
+#searchbox{position:fixed;z-index:40;top:60px;left:12px;right:12px;border:1px solid #2d3744;border-radius:15px;background:#0a0f16;padding:11px;display:none;box-shadow:0 18px 50px #000}
+#searchbox.show{display:block}#q{width:100%;border:0;outline:0;background:transparent;color:white;font-size:14px;padding:4px}
+#results{max-height:48vh;overflow:auto}.result{padding:12px 5px;border-top:1px solid #1c2430;font-size:11px}.result span{color:#6f7a89;font-size:8px;display:block;margin-top:3px;letter-spacing:.08em}
+#legend{position:fixed;z-index:12;bottom:max(12px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);font-size:7px;color:#596473;letter-spacing:.16em;white-space:nowrap}
+</style>
+</head>
+<body>
+<header><div class="brand">HAISHAM LIFE GRAPH · V3</div><div class="tools"><button class="tool" id="homeBtn">⌂</button><button class="tool" id="searchBtn">⌕</button></div></header>
+<div id="crumbs"></div>
+<div id="viewport"><div id="world"><svg id="edges"></svg></div></div>
+<div id="legend">TAP TO FOCUS · TAP AGAIN FOR DETAILS · DRAG · PINCH</div>
+<div id="searchbox"><input id="q" placeholder="Search your life graph…" autocomplete="off"><div id="results"></div></div>
+<div id="panel"><div class="phead"><div><div class="ptitle" id="ptitle"></div><div class="ptype" id="ptype"></div></div><button class="close" id="pclose">×</button></div><div class="pdesc" id="pdesc"></div><div class="actions"><button class="action" id="notion">OPEN NOTION ↗</button><button class="action" id="focusAction">FOCUS NODE</button></div></div>
+<script>
+// DATA LAYER — add future people/projects/documents/writings here without redesigning UI.
+const N=[
+{id:"home",name:"HOME",icon:"🏠",type:"Command Centre",desc:"The central map of your life.",url:"https://app.notion.com/p/3edd8173450581089437f7be24ffdab8?pvs=204"},
+{id:"now",name:"NOW",icon:"☀️",type:"Command",desc:"What needs your attention now.",url:"https://app.notion.com/p/3edd8173450581d18cb4d13b841dc3b4?pvs=204"},
+{id:"direction",name:"DIRECTION",icon:"🧭",type:"Life Area",desc:"Vision, identity, principles and goals.",url:"https://app.notion.com/p/3edd817345058143baf5e6782771288b?pvs=204"},
+{id:"life",name:"LIFE",icon:"👤",type:"Life Area",desc:"Faith, health, habits, lifestyle and personal growth.",url:"https://app.notion.com/p/3edd817345058178a0d0e572b3b54737?pvs=204"},
+{id:"people",name:"PEOPLE",icon:"👥",type:"Life Area",desc:"Family, relationships, friends and important people.",url:"https://app.notion.com/p/3edd8173450581a5a601ef424cf1bbe0?pvs=204"},
+{id:"work",name:"WORK",icon:"🚀",type:"Life Area",desc:"Career, businesses, projects, partnerships and achievements.",url:"https://app.notion.com/p/3edd8173450581fe9f11c10f05b18789?pvs=204"},
+{id:"mind",name:"MIND",icon:"🧠",type:"Life Area",desc:"Knowledge, ideas, learning, books and writings.",url:"https://app.notion.com/p/3edd817345058157b5a3f267c1a9836b?pvs=204"},
+{id:"wealth",name:"WEALTH",icon:"💰",type:"Life Area",desc:"Financial overview, assets, liabilities, investments and ownership.",url:"https://app.notion.com/p/3edd8173450581a3ba7bf28c6dcc1a61?pvs=204"},
+{id:"history",name:"HISTORY",icon:"📜",type:"Life Area",desc:"Timeline, milestones, decisions, lessons and memories.",url:"https://app.notion.com/p/3edd8173450581cfa6f9c49ceca2c8e7?pvs=204"},
+{id:"records",name:"RECORDS",icon:"📂",type:"Life Area",desc:"Index of important documents and evidence.",url:"https://app.notion.com/p/3edd81734505811787affa4c92e7ab1e?pvs=204"},
+{id:"businesses",name:"BUSINESSES",icon:"🏢",type:"Work",desc:"Businesses and ventures.",parent:"work"},
+{id:"projects",name:"PROJECTS",icon:"◈",type:"Work",desc:"Active and historical projects.",parent:"work"},
+{id:"career",name:"CAREER",icon:"💼",type:"Work",desc:"Professional history and development.",parent:"work"},
+{id:"partnerships",name:"PARTNERSHIPS",icon:"🤝",type:"Work",desc:"Business and professional partnerships.",parent:"work"},
+{id:"ideas",name:"IDEAS",icon:"💡",type:"Mind",desc:"Ideas worth preserving and connecting.",parent:"mind"},
+{id:"writings",name:"WRITINGS",icon:"✍️",type:"Mind",desc:"Poems, stories, reflections and other original writing.",parent:"mind"},
+{id:"knowledge",name:"KNOWLEDGE",icon:"📚",type:"Mind",desc:"What you learn and want to retain.",parent:"mind"},
+{id:"events",name:"LIFE EVENTS",icon:"◆",type:"History",desc:"Important events across your life.",parent:"history"},
+{id:"decisions",name:"DECISIONS",icon:"◇",type:"History",desc:"Major decisions and their consequences.",parent:"history"},
+{id:"documents",name:"DOCUMENTS",icon:"📄",type:"Records",desc:"Links to original records and documents.",parent:"records"},
+{id:"goals",name:"GOALS",icon:"🎯",type:"Direction",desc:"Current and future goals.",parent:"direction"}
+];
+const E=[
+["home","now"],["home","direction"],["home","life"],["home","people"],["home","work"],["home","mind"],["home","wealth"],["home","history"],["home","records"],
+["work","businesses"],["work","projects"],["work","career"],["work","partnerships"],
+["mind","ideas"],["mind","writings"],["mind","knowledge"],
+["history","events"],["history","decisions"],["records","documents"],["direction","goals"],
+// cross-domain relationships demonstrate graph behavior
+["projects","ideas"],["projects","documents"],["projects","events"],["writings","events"],["decisions","projects"],["goals","projects"]
+];
+const by=id=>N.find(n=>n.id===id), neighbors=id=>E.flatMap(([a,b])=>a===id?[b]:b===id?[a]:[]);
+let focus="home", lastTap="", path=["home"], scale=1,tx=0,ty=0,drag=null,pinch=null;
+const world=document.getElementById("world"),svg=document.getElementById("edges"),els={};
+N.forEach(n=>{let d=document.createElement("div");d.className="node";d.innerHTML=`<div class="ico">${n.icon}</div><div class="name">${n.name}</div>`;d.onclick=e=>{e.stopPropagation();if(lastTap===n.id){showPanel(n);lastTap=""}else{lastTap=n.id;setFocus(n.id)}};world.appendChild(d);els[n.id]=d});
+function layout(){
+ const visible=new Set([focus,...neighbors(focus)]);
+ // also show one-hop children when home is focused
+ if(focus==="home") neighbors("home").forEach(x=>visible.add(x));
+ const ids=[...visible].filter(x=>x!==focus),cx=innerWidth/2,cy=innerHeight*.50;
+ const radius=Math.min(innerWidth*.38,155), ry=Math.min(innerHeight*.31,235);
+ const P={[focus]:[cx,cy]};
+ ids.forEach((id,i)=>{let a=(-Math.PI/2)+(i*2*Math.PI/ids.length);P[id]=[cx+Math.cos(a)*radius,cy+Math.sin(a)*ry]});
+ return {visible,P};
+}
+function render(){
+ const {visible,P}=layout(); svg.innerHTML="";
+ E.forEach(([a,b])=>{if(!visible.has(a)||!visible.has(b))return;let A=P[a],B=P[b];if(!A||!B)return;let l=document.createElementNS("http://www.w3.org/2000/svg","line");l.setAttribute("x1",A[0]);l.setAttribute("y1",A[1]);l.setAttribute("x2",B[0]);l.setAttribute("y2",B[1]);l.classList.add("edge");if(a===focus||b===focus)l.classList.add("active");svg.appendChild(l)});
+ N.forEach(n=>{let e=els[n.id];if(!visible.has(n.id)){e.style.display="none";return}e.style.display="flex";let p=P[n.id];e.style.left=p[0]+"px";e.style.top=p[1]+"px";e.className="node"+(n.id===focus?" focus":" related")});
+ world.style.transform=`translate(${tx}px,${ty}px) scale(${scale})`;renderCrumbs();
+}
+function setFocus(id){focus=id; if(path[path.length-1]!==id){let old=path.indexOf(id);path=old>=0?path.slice(0,old+1):[...path,id]} tx=ty=0;scale=1;render()}
+function renderCrumbs(){let c=document.getElementById("crumbs");c.innerHTML="";path.forEach(id=>{let b=document.createElement("button");b.className="crumb";b.textContent=by(id).icon+" "+by(id).name;b.onclick=()=>setFocus(id);c.appendChild(b)})}
+function showPanel(n){document.getElementById("ptitle").textContent=n.icon+" "+n.name;document.getElementById("ptype").textContent=n.type.toUpperCase();document.getElementById("pdesc").textContent=n.desc;let nb=document.getElementById("notion");nb.style.display=n.url?"block":"none";nb.onclick=()=>location.href=n.url;document.getElementById("focusAction").onclick=()=>{setFocus(n.id);hidePanel()};document.getElementById("panel").classList.add("show")}
+function hidePanel(){document.getElementById("panel").classList.remove("show")}
+document.getElementById("pclose").onclick=hidePanel;document.getElementById("homeBtn").onclick=()=>{path=["home"];setFocus("home")};
+const sb=document.getElementById("searchbox"),q=document.getElementById("q"),res=document.getElementById("results");
+document.getElementById("searchBtn").onclick=()=>{sb.classList.toggle("show");if(sb.classList.contains("show"))q.focus()};
+q.oninput=()=>{let s=q.value.toLowerCase().trim();res.innerHTML="";if(!s)return;N.filter(n=>(n.name+" "+n.type+" "+n.desc).toLowerCase().includes(s)).forEach(n=>{let r=document.createElement("div");r.className="result";r.innerHTML=`${n.icon} ${n.name}<span>${n.type}</span>`;r.onclick=()=>{setFocus(n.id);sb.classList.remove("show");q.value="";res.innerHTML=""};res.appendChild(r)})};
+const vp=document.getElementById("viewport");
+vp.addEventListener("touchstart",e=>{if(e.target.closest(".node"))return;if(e.touches.length===1)drag={x:e.touches[0].clientX-tx,y:e.touches[0].clientY-ty};if(e.touches.length===2)pinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY)},{passive:true});
+vp.addEventListener("touchmove",e=>{if(e.touches.length===1&&drag){tx=e.touches[0].clientX-drag.x;ty=e.touches[0].clientY-drag.y;world.style.transform=`translate(${tx}px,${ty}px) scale(${scale})`}if(e.touches.length===2&&pinch){let d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);scale=Math.max(.65,Math.min(1.8,scale*d/pinch));pinch=d;world.style.transform=`translate(${tx}px,${ty}px) scale(${scale})`}},{passive:true});
+vp.addEventListener("touchend",()=>{drag=null;pinch=null});
+addEventListener("resize",render);render();
+</script>
+</body></html>
