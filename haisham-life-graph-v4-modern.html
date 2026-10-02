@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#05070b">
+<title>Haisham Life Graph</title>
+<style>
+:root{--bg:#05070b;--panel:rgba(9,14,21,.88);--text:#eef3f8;--muted:#748090;--line:#283442;--line2:#7f91a6;--node:#0a1017;--stroke:#526174;--hot:#dce7f2}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif}
+body:before{content:"";position:fixed;inset:0;background:
+radial-gradient(circle at 50% 45%,rgba(148,170,194,.08),transparent 28%),
+linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),
+linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);
+background-size:auto,40px 40px,40px 40px;pointer-events:none}
+header{position:fixed;z-index:30;top:max(16px,env(safe-area-inset-top));left:18px;right:18px;display:flex;align-items:center;justify-content:space-between}
+.brand{font-size:10px;letter-spacing:.25em;font-weight:750;color:#8d98a7}
+.tools{display:flex;gap:8px}
+.tool{width:38px;height:38px;border:1px solid #26313e;background:rgba(8,13,20,.92);border-radius:12px;color:#dce5ef;font-size:18px}
+#viewport{position:absolute;inset:0;overflow:hidden;touch-action:none}
+#world{position:absolute;left:0;top:0;width:100%;height:100%;transform-origin:0 0}
+#edges{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.edge{fill:none;stroke:var(--line);stroke-width:1;opacity:.68}
+.edge.active{stroke:var(--line2);stroke-width:1.25;opacity:1;filter:drop-shadow(0 0 4px rgba(170,195,220,.18))}
+.node{position:absolute;transform:translate(-50%,-50%);width:76px;height:76px;border-radius:22px;border:1px solid #334050;background:linear-gradient(145deg,rgba(17,25,35,.97),rgba(7,12,18,.97));display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 10px 30px rgba(0,0,0,.25);user-select:none;transition:width .28s,height .28s,border-color .28s,box-shadow .28s,opacity .28s}
+.node:before{content:"";position:absolute;inset:5px;border:1px solid rgba(120,143,168,.12);border-radius:17px;pointer-events:none}
+.node .ico{width:25px;height:25px;color:#aab8c8;display:flex;align-items:center;justify-content:center}
+.node .ico svg{width:100%;height:100%;stroke:currentColor;fill:none;stroke-width:1.45;stroke-linecap:round;stroke-linejoin:round}
+.node .name{margin-top:7px;font-size:8px;letter-spacing:.15em;font-weight:800;text-align:center}
+.node.focus{width:106px;height:106px;border-radius:30px;border-color:#9cadc0;background:linear-gradient(145deg,#131c27,#091018);box-shadow:0 0 0 8px rgba(150,175,200,.045),0 0 38px rgba(170,200,230,.11),0 16px 45px rgba(0,0,0,.4)}
+.node.focus .ico{width:31px;height:31px;color:#e0eaf4}.node.focus .name{font-size:10px}
+.node.related{border-color:#3d4b5d}
+#crumbs{position:fixed;z-index:20;top:67px;left:18px;right:18px;display:flex;gap:6px;overflow:auto;scrollbar-width:none}
+.crumb{white-space:nowrap;border:1px solid #202a36;border-radius:999px;padding:7px 10px;background:rgba(7,12,18,.82);font-size:8px;letter-spacing:.1em;color:#7e8997}
+.crumb:last-child{color:#dfe7ef;border-color:#455467}
+#panel{position:fixed;z-index:40;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));border:1px solid #283543;border-radius:20px;background:rgba(7,12,18,.94);backdrop-filter:blur(20px);box-shadow:0 18px 60px #000;padding:15px;transform:translateY(135%);transition:.3s ease}
+#panel.show{transform:translateY(0)}
+.phead{display:flex;justify-content:space-between;align-items:center;gap:10px}.ptitle{font-size:15px;font-weight:800;letter-spacing:.04em}.ptype{font-size:7px;color:#6f7c8d;letter-spacing:.16em;margin-top:5px}.pdesc{font-size:11px;line-height:1.5;color:#98a4b2;margin:11px 0 13px}.actions{display:flex;gap:8px}.action{flex:1;border:1px solid #334151;border-radius:12px;background:#101822;padding:11px;font-size:8px;font-weight:800;letter-spacing:.1em;color:#e8eef5}.close{border:0;background:none;color:#7d8998;font-size:20px}
+#searchbox{position:fixed;z-index:50;top:61px;left:12px;right:12px;border:1px solid #293645;border-radius:16px;background:#080e15;padding:11px;display:none;box-shadow:0 18px 50px #000}
+#searchbox.show{display:block}#q{width:100%;border:0;outline:0;background:transparent;color:white;font-size:14px;padding:5px}
+#results{max-height:48vh;overflow:auto}.result{padding:12px 5px;border-top:1px solid #1a2330;font-size:11px}.result span{color:#6f7a89;font-size:8px;display:block;margin-top:3px;letter-spacing:.08em}
+#legend{position:fixed;z-index:12;bottom:max(12px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);font-size:7px;color:#505d6c;letter-spacing:.17em;white-space:nowrap}
+@media(max-width:430px){.node{width:70px;height:70px;border-radius:20px}.node.focus{width:98px;height:98px;border-radius:28px}.node .name{font-size:7.5px}}
+</style>
+</head>
+<body>
+<header><div class="brand">HAISHAM LIFE GRAPH · V4</div><div class="tools"><button class="tool" id="homeBtn" aria-label="Home">⌂</button><button class="tool" id="searchBtn" aria-label="Search">⌕</button></div></header>
+<div id="crumbs"></div>
+<div id="viewport"><div id="world"><svg id="edges"></svg></div></div>
+<div id="legend">FOCUS · EXPLORE · CONNECT</div>
+<div id="searchbox"><input id="q" placeholder="Search life graph…" autocomplete="off"><div id="results"></div></div>
+<div id="panel"><div class="phead"><div><div class="ptitle" id="ptitle"></div><div class="ptype" id="ptype"></div></div><button class="close" id="pclose">×</button></div><div class="pdesc" id="pdesc"></div><div class="actions"><button class="action" id="notion">OPEN NOTION ↗</button><button class="action" id="focusAction">FOCUS NODE</button></div></div>
+<script>
+const ICONS={
+home:`<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="10"/><circle cx="16" cy="16" r="3"/><path d="M16 2v4M16 26v4M2 16h4M26 16h4"/><path d="M8.2 8.2l2.8 2.8M21 21l2.8 2.8M23.8 8.2L21 11M11 21l-2.8 2.8"/></svg>`,
+now:`<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="11"/><path d="M16 9v7l5 3"/><path d="M4 16h3M25 16h3"/></svg>`,
+direction:`<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="11"/><path d="M20.5 11.5l-3 6-6 3 3-6z"/><path d="M16 3v3M16 26v3M3 16h3M26 16h3"/></svg>`,
+life:`<svg viewBox="0 0 32 32"><path d="M4 17h6l2.3-6 4.2 12 3.2-8 2.1 2H28"/><path d="M16 28C8 23.5 5 19.5 5 13.5A6 6 0 0 1 16 10a6 6 0 0 1 11 3.5C27 19.5 24 23.5 16 28z"/></svg>`,
+people:`<svg viewBox="0 0 32 32"><circle cx="11" cy="12" r="4"/><circle cx="22" cy="13" r="3.5"/><path d="M3.5 26c.6-5 3.3-7.5 7.5-7.5s7 2.5 7.5 7.5"/><path d="M18 20c1-.9 2.3-1.4 4-1.4 3.6 0 5.8 2.2 6.3 6.4"/></svg>`,
+work:`<svg viewBox="0 0 32 32"><rect x="5" y="7" width="22" height="18" rx="3"/><path d="M11 7V4h10v3M5 14h22M13 14v3h6v-3"/></svg>`,
+mind:`<svg viewBox="0 0 32 32"><circle cx="8" cy="16" r="2.2"/><circle cx="16" cy="7" r="2.2"/><circle cx="24" cy="13" r="2.2"/><circle cx="20" cy="24" r="2.2"/><circle cx="10" cy="25" r="2.2"/><path d="M9.5 14.4l5-5.7M18 8l4.3 3.5M23.4 15l-2.6 6.8M18 24.3l-5.8.5M9.2 23l-1-4.8M10 16h11.8M16 9.2l3.4 12.7"/></svg>`,
+wealth:`<svg viewBox="0 0 32 32"><path d="M5 25V15M12 25V10M19 25V17M26 25V6"/><path d="M4 27h24"/><path d="M5 12l7-5 7 6 7-10"/></svg>`,
+history:`<svg viewBox="0 0 32 32"><path d="M6 8h15a6 6 0 0 1 0 12H11"/><path d="M6 8l4-4M6 8l4 4"/><circle cx="21" cy="14" r="2"/><path d="M21 14V9"/></svg>`,
+records:`<svg viewBox="0 0 32 32"><path d="M7 5h12l6 6v16H7z"/><path d="M19 5v7h6M11 17h10M11 21h10"/></svg>`,
+businesses:`<svg viewBox="0 0 32 32"><path d="M5 27V10h9v17M14 27V5h13v22"/><path d="M9 14h1M9 18h1M18 10h2M23 10h1M18 15h2M23 15h1M18 20h2M23 20h1"/></svg>`,
+projects:`<svg viewBox="0 0 32 32"><path d="M6 8h8l2 3h10v15H6z"/><path d="M11 18h10M16 13v10"/></svg>`,
+career:`<svg viewBox="0 0 32 32"><rect x="5" y="9" width="22" height="16" rx="2"/><path d="M11 9V5h10v4M5 16h22"/></svg>`,
+partnerships:`<svg viewBox="0 0 32 32"><path d="M5 17l6-6 5 3 5-3 6 6"/><path d="M8 20l4 4 4-4 4 4 4-4"/><path d="M11 11l5 5 5-5"/></svg>`,
+ideas:`<svg viewBox="0 0 32 32"><path d="M10 21c-2.3-1.8-4-4.2-4-7a10 10 0 0 1 20 0c0 2.8-1.7 5.2-4 7l-2 2H12z"/><path d="M12 27h8M13 23v4M19 23v4"/></svg>`,
+writings:`<svg viewBox="0 0 32 32"><path d="M6 26l5-1 14-14-4-4L7 21z"/><path d="M18 10l4 4M6 26h20"/></svg>`,
+knowledge:`<svg viewBox="0 0 32 32"><path d="M5 7h9a4 4 0 0 1 4 4v16a4 4 0 0 0-4-4H5z"/><path d="M27 7h-5a4 4 0 0 0-4 4v16a4 4 0 0 1 4-4h5z"/></svg>`,
+events:`<svg viewBox="0 0 32 32"><path d="M6 8h20v18H6zM10 4v7M22 4v7M6 13h20"/><circle cx="12" cy="19" r="1.5"/><circle cx="20" cy="19" r="1.5"/></svg>`,
+decisions:`<svg viewBox="0 0 32 32"><path d="M16 4v7M16 11l-7 7M16 11l7 7"/><circle cx="16" cy="5" r="2"/><circle cx="9" cy="20" r="2"/><circle cx="23" cy="20" r="2"/></svg>`,
+documents:`<svg viewBox="0 0 32 32"><path d="M8 4h11l6 6v18H8z"/><path d="M19 4v7h6M12 16h9M12 20h9M12 24h6"/></svg>`,
+goals:`<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="11"/><circle cx="16" cy="16" r="6"/><circle cx="16" cy="16" r="2"/><path d="M23 9l5-5M23 4h5v5"/></svg>`
+};
+
+const N=[
+{id:"home",name:"HOME",type:"Command Centre",desc:"The central map of your life.",url:"https://app.notion.com/p/3edd8173450581089437f7be24ffdab8?pvs=204"},
+{id:"now",name:"NOW",type:"Command",desc:"What needs your attention now.",url:"https://app.notion.com/p/3edd8173450581d18cb4d13b841dc3b4?pvs=204"},
+{id:"direction",name:"DIRECTION",type:"Life Area",desc:"Vision, identity, principles and goals.",url:"https://app.notion.com/p/3edd817345058143baf5e6782771288b?pvs=204"},
+{id:"life",name:"LIFE",type:"Life Area",desc:"Faith, health, habits, lifestyle and personal growth.",url:"https://app.notion.com/p/3edd817345058178a0d0e572b3b54737?pvs=204"},
+{id:"people",name:"PEOPLE",type:"Life Area",desc:"Family, relationships, friends and important people.",url:"https://app.notion.com/p/3edd8173450581a5a601ef424cf1bbe0?pvs=204"},
+{id:"work",name:"WORK",type:"Life Area",desc:"Career, businesses, projects, partnerships and achievements.",url:"https://app.notion.com/p/3edd8173450581fe9f11c10f05b18789?pvs=204"},
+{id:"mind",name:"MIND",type:"Life Area",desc:"Knowledge, ideas, learning, books and writings.",url:"https://app.notion.com/p/3edd817345058157b5a3f267c1a9836b?pvs=204"},
+{id:"wealth",name:"WEALTH",type:"Life Area",desc:"Financial overview, assets, liabilities, investments and ownership.",url:"https://app.notion.com/p/3edd8173450581a3ba7bf28c6dcc1a61?pvs=204"},
+{id:"history",name:"HISTORY",type:"Life Area",desc:"Timeline, milestones, decisions, lessons and memories.",url:"https://app.notion.com/p/3edd8173450581cfa6f9c49ceca2c8e7?pvs=204"},
+{id:"records",name:"RECORDS",type:"Life Area",desc:"Index of important documents and evidence.",url:"https://app.notion.com/p/3edd81734505811787affa4c92e7ab1e?pvs=204"},
+{id:"businesses",name:"BUSINESSES",type:"Work",desc:"Businesses and ventures.",parent:"work"},
+{id:"projects",name:"PROJECTS",type:"Work",desc:"Active and historical projects.",parent:"work"},
+{id:"career",name:"CAREER",type:"Work",desc:"Professional history and development.",parent:"work"},
+{id:"partnerships",name:"PARTNERSHIPS",type:"Work",desc:"Business and professional partnerships.",parent:"work"},
+{id:"ideas",name:"IDEAS",type:"Mind",desc:"Ideas worth preserving and connecting.",parent:"mind"},
+{id:"writings",name:"WRITINGS",type:"Mind",desc:"Poems, stories, reflections and other original writing.",parent:"mind"},
+{id:"knowledge",name:"KNOWLEDGE",type:"Mind",desc:"What you learn and want to retain.",parent:"mind"},
+{id:"events",name:"LIFE EVENTS",type:"History",desc:"Important events across your life.",parent:"history"},
+{id:"decisions",name:"DECISIONS",type:"History",desc:"Major decisions and their consequences.",parent:"history"},
+{id:"documents",name:"DOCUMENTS",type:"Records",desc:"Links to original records and documents.",parent:"records"},
+{id:"goals",name:"GOALS",type:"Direction",desc:"Current and future goals.",parent:"direction"}
+];
+const E=[
+["home","now"],["home","direction"],["home","life"],["home","people"],["home","work"],["home","mind"],["home","wealth"],["home","history"],["home","records"],
+["work","businesses"],["work","projects"],["work","career"],["work","partnerships"],
+["mind","ideas"],["mind","writings"],["mind","knowledge"],["history","events"],["history","decisions"],["records","documents"],["direction","goals"],
+["projects","ideas"],["projects","documents"],["projects","events"],["writings","events"],["decisions","projects"],["goals","projects"]
+];
+const by=id=>N.find(n=>n.id===id), neighbors=id=>E.flatMap(([a,b])=>a===id?[b]:b===id?[a]:[]);
+let focus="home",lastTap="",path=["home"],scale=1,tx=0,ty=0,drag=null,pinch=null;
+const world=document.getElementById("world"),svg=document.getElementById("edges"),els={};
+
+N.forEach(n=>{
+ let d=document.createElement("div"); d.className="node";
+ d.innerHTML=`<div class="ico">${ICONS[n.id]||ICONS.home}</div><div class="name">${n.name}</div>`;
+ d.onclick=e=>{e.stopPropagation(); if(lastTap===n.id){showPanel(n);lastTap=""}else{lastTap=n.id;setFocus(n.id)}};
+ world.appendChild(d);els[n.id]=d;
+});
+
+function layout(){
+ const visible=new Set([focus,...neighbors(focus)]);
+ if(focus==="home")neighbors("home").forEach(x=>visible.add(x));
+ const ids=[...visible].filter(x=>x!==focus),cx=innerWidth/2,cy=innerHeight*.49;
+ const rx=Math.min(innerWidth*.40,170),ry=Math.min(innerHeight*.31,245),P={[focus]:[cx,cy]};
+ ids.forEach((id,i)=>{const a=(-Math.PI/2)+(i*2*Math.PI/ids.length);P[id]=[cx+Math.cos(a)*rx,cy+Math.sin(a)*ry]});
+ return{visible,P};
+}
+function curve(A,B){
+ const mx=(A[0]+B[0])/2,my=(A[1]+B[1])/2,dx=B[0]-A[0],dy=B[1]-A[1],len=Math.hypot(dx,dy)||1;
+ const bend=Math.min(12,len*.035),cx=mx-dy/len*bend,cy=my+dx/len*bend;
+ return`M ${A[0]} ${A[1]} Q ${cx} ${cy} ${B[0]} ${B[1]}`;
+}
+function render(){
+ const{visible,P}=layout();svg.innerHTML="";
+ E.forEach(([a,b])=>{
+  if(!visible.has(a)||!visible.has(b)||!P[a]||!P[b])return;
+  const p=document.createElementNS("http://www.w3.org/2000/svg","path");
+  p.setAttribute("d",curve(P[a],P[b]));p.classList.add("edge");if(a===focus||b===focus)p.classList.add("active");svg.appendChild(p);
+ });
+ N.forEach(n=>{
+  const e=els[n.id];if(!visible.has(n.id)){e.style.display="none";return}
+  e.style.display="flex";const p=P[n.id];e.style.left=p[0]+"px";e.style.top=p[1]+"px";e.className="node"+(n.id===focus?" focus":" related");
+ });
+ world.style.transform=`translate(${tx}px,${ty}px) scale(${scale})`;renderCrumbs();
+}
+function setFocus(id){focus=id;if(path[path.length-1]!==id){const old=path.indexOf(id);path=old>=0?path.slice(0,old+1):[...path,id]}tx=ty=0;scale=1;render()}
+function renderCrumbs(){const c=document.getElementById("crumbs");c.innerHTML="";path.forEach(id=>{const b=document.createElement("button");b.className="crumb";b.textContent=by(id).name;b.onclick=()=>setFocus(id);c.appendChild(b)})}
+function showPanel(n){document.getElementById("ptitle").textContent=n.name;document.getElementById("ptype").textContent=n.type.toUpperCase();document.getElementById("pdesc").textContent=n.desc;const nb=document.getElementById("notion");nb.style.display=n.url?"block":"none";nb.onclick=()=>location.href=n.url;document.getElementById("focusAction").onclick=()=>{setFocus(n.id);hidePanel()};document.getElementById("panel").classList.add("show")}
+function hidePanel(){document.getElementById("panel").classList.remove("show")}
+document.getElementById("pclose").onclick=hidePanel;document.getElementById("homeBtn").onclick=()=>{path=["home"];setFocus("home")};
+const sb=document.getElementById("searchbox"),q=document.getElementById("q"),res=document.getElementById("results");
+document.getElementById("searchBtn").onclick=()=>{sb.classList.toggle("show");if(sb.classList.contains("show"))q.focus()};
+q.oninput=()=>{const s=q.value.toLowerCase().trim();res.innerHTML="";if(!s)return;N.filter(n=>(n.name+" "+n.type+" "+n.desc).toLowerCase().includes(s)).forEach(n=>{const r=document.createElement("div");r.className="result";r.innerHTML=`${n.name}<span>${n.type}</span>`;r.onclick=()=>{setFocus(n.id);sb.classList.remove("show");q.value="";res.innerHTML=""};res.appendChild(r)})};
+const vp=document.getElementById("viewport");
+vp.addEventListener("touchstart",e=>{if(e.target.closest(".node"))return;if(e.touches.length===1)drag={x:e.touches[0].clientX-tx,y:e.touches[0].clientY-ty};if(e.touches.length===2)pinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY)},{passive:true});
+vp.addEventListener("touchmove",e=>{if(e.touches.length===1&&drag){tx=e.touches[0].clientX-drag.x;ty=e.touches[0].clientY-drag.y;world.style.transform=`translate(${tx}px,${ty}px) scale(${scale})`}if(e.touches.length===2&&pinch){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);scale=Math.max(.65,Math.min(1.9,scale*d/pinch));pinch=d;world.style.transform=`translate(${tx}px,${ty}px) scale(${scale})`}},{passive:true});
+vp.addEventListener("touchend",()=>{drag=null;pinch=null});
+addEventListener("resize",render);render();
+</script>
+</body></html>
